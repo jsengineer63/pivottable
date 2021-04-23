@@ -1,6 +1,6 @@
 import React, { useState, useContext, useCallback, useEffect } from 'react';
 
-import { useParams } from 'react-router-dom';
+import { useHistory, useParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import InputLabel from '@material-ui/core/InputLabel';
 import MenuItem from '@material-ui/core/MenuItem';
@@ -16,6 +16,7 @@ import Typography from '@material-ui/core/Typography';
 import Container from '@material-ui/core/Container';
 import Grid from '@material-ui/core/Grid';
 import Paper from '@material-ui/core/Paper';
+import Button from '@material-ui/core/Button';
 
 import PivotTableUI from 'react-pivottable/PivotTableUI';
 import { aggregatorTemplates } from 'react-pivottable/Utilities';
@@ -74,6 +75,16 @@ const useStyles = makeStyles((theme) => ({
   selectEmpty: {
     marginTop: theme.spacing(2),
   },
+  sectionControl: {
+    color: 'white',
+  },
+  button: {
+    display: 'inline-block',
+  },
+  buttonlabel: {
+    color: 'white',
+    fontSize: '20px',
+  },
 }));
 
 const Board = () => {
@@ -81,6 +92,7 @@ const Board = () => {
 
   const [stats2D, setStats2D] = useState([]);
   const [appInfo, setAppInfo] = useState({});
+  const [groupInfo, setGroupInfo] = useState([]);
   const [pivotData, setPivotData] = useState({
     cols: ['name2'],
     rows: ['name1'],
@@ -93,7 +105,18 @@ const Board = () => {
       },
     },
   });
-  console.log(aggregatorTemplates);
+
+  const [open, setOpen] = React.useState(false);
+
+  const handleClose = useCallback(() => {
+    setOpen(false);
+  }, []);
+
+  const handleOpen = useCallback(() => {
+    setOpen(true);
+  }, []);
+
+  const history = useHistory();
 
   const [filterData, setFilterData] = useState({
     category1: {
@@ -113,12 +136,14 @@ const Board = () => {
 
   const { state } = useContext(AppContext);
   const { data } = state;
-  console.log(pivotData);
 
   // app data & category 1
   useEffect(() => {
     if (data) {
       const appDt = data.find((d) => d.statsid === chosedSection);
+      setGroupInfo(
+        data.map((item) => ({ id: item.statsid, name: item.groupingname }))
+      );
       if (appDt) {
         setAppInfo({
           calcfrom: appDt.calcfrom,
@@ -220,6 +245,14 @@ const Board = () => {
     return filteredCategs;
   }, [stats2D, filterData]);
 
+  const handleSectionChange = useCallback(
+    (e) => {
+      const { value } = e.target;
+      history.push(`/data/${value}`);
+    },
+    [history]
+  );
+
   return (
     <div className={classes.root}>
       <CssBaseline />
@@ -232,7 +265,36 @@ const Board = () => {
             noWrap
             className={classes.title}
           >
-            {appInfo && `Selected Group - ${appInfo.groupingname} `}
+            Selected Group -
+            <Button
+              className={classes.button}
+              onClick={handleOpen}
+              id='select-menu'
+            >
+              <span className={classes.buttonlabel}>
+                {appInfo.groupingname}
+              </span>
+            </Button>
+            <FormControl className={classes.formControl}>
+              <Select
+                open={open}
+                onClose={handleClose}
+                onOpen={handleOpen}
+                value={chosedSection}
+                onChange={handleSectionChange}
+                style={{ display: 'none' }}
+                MenuProps={{
+                  anchorEl: document.getElementById('select-menu'),
+                  style: { marginLeft: 20, marginTop: 10 },
+                }}
+              >
+                {groupInfo?.map(({ id, name }) => (
+                  <MenuItem key={id} value={id}>
+                    {name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Typography>
         </Toolbar>
       </AppBar>
@@ -245,7 +307,7 @@ const Board = () => {
                 {/* category 1 */}
                 <FormControl className={classes.formControl}>
                   <InputLabel id='demo-simple-select-label'>
-                    Category 1
+                    Row Heading
                   </InputLabel>
                   <Select
                     labelId='demo-simple-select-label'
@@ -275,7 +337,7 @@ const Board = () => {
                 {/* category 2 */}
                 <FormControl className={classes.formControl}>
                   <InputLabel id='demo-simple-select-label'>
-                    Category 2
+                    Column Heading
                   </InputLabel>
                   <Select
                     labelId='demo-simple-select-label'

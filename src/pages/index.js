@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
 
 import Board from './Board';
 import Category from './Category';
-import Dashboard from './Dashboard';
 import { AppContext } from 'context/app/provider';
 
 const RootPage = () => {
@@ -21,11 +20,13 @@ const RootPage = () => {
         <Switch>
           <Route exact path={'/'} component={Category} />
           <Route exact path={'/data/:sid'} component={Board} />
-          <Route exact path={'/dashboard'} component={Dashboard} />
+          <Route component={NotFound} />
         </Switch>
       </Router>
     </React.Fragment>
   );
 };
+
+const NotFound = () => <div> 404 Not Found </div>;
 
 export default RootPage;
