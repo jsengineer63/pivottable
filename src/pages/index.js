@@ -3,8 +3,8 @@ import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
 
 import Board from './Board';
 import Category from './Category';
-import { AppContext } from 'context/app/provider';
 import Dashboard from './Dashboard';
+import { AppContext } from 'context/app/provider';
 
 const RootPage = () => {
   const { fetchAppData } = useContext(AppContext);

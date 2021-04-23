@@ -9,15 +9,64 @@ import ListItemText from '@material-ui/core/ListItemText';
 import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
 import Input from '@material-ui/core/Input';
+import CssBaseline from '@material-ui/core/CssBaseline';
+import AppBar from '@material-ui/core/AppBar';
+import Toolbar from '@material-ui/core/Toolbar';
+import Typography from '@material-ui/core/Typography';
+import Container from '@material-ui/core/Container';
+import Grid from '@material-ui/core/Grid';
+import Paper from '@material-ui/core/Paper';
 
 import PivotTableUI from 'react-pivottable/PivotTableUI';
+import { aggregatorTemplates } from 'react-pivottable/Utilities';
 
 import { AppContext } from 'context/app/provider';
 import { getNameByUnique } from 'service/utils';
 
 import 'react-pivottable/pivottable.css';
 
+const ALL_DATA_MARK = '####';
+
 const useStyles = makeStyles((theme) => ({
+  root: {
+    display: 'flex',
+  },
+  toolbar: {
+    paddingRight: 24, // keep right padding when drawer closed
+  },
+  appBar: {
+    zIndex: theme.zIndex.drawer + 1,
+    transition: theme.transitions.create(['width', 'margin'], {
+      easing: theme.transitions.easing.sharp,
+      duration: theme.transitions.duration.leavingScreen,
+    }),
+  },
+
+  title: {
+    flexGrow: 1,
+  },
+
+  appBarSpacer: theme.mixins.toolbar,
+  content: {
+    flexGrow: 1,
+    height: '100vh',
+    overflow: 'auto',
+  },
+  container: {
+    paddingTop: theme.spacing(4),
+    paddingBottom: theme.spacing(4),
+  },
+  filters: {
+    padding: theme.spacing(2),
+    display: 'flex',
+    overflow: 'auto',
+  },
+  paper: {
+    padding: theme.spacing(2),
+    display: 'flex',
+    overflow: 'auto',
+    flexDirection: 'column',
+  },
   formControl: {
     margin: theme.spacing(1),
     minWidth: 120,
@@ -30,9 +79,21 @@ const useStyles = makeStyles((theme) => ({
 const Board = () => {
   const classes = useStyles();
 
-  const [pivotData, setPivotData] = useState({});
   const [stats2D, setStats2D] = useState([]);
-  const ALL_DATA_MARK = '####';
+  const [appInfo, setAppInfo] = useState({});
+  const [pivotData, setPivotData] = useState({
+    cols: ['name2'],
+    rows: ['name1'],
+    aggregatorName: 'Percentage',
+    hiddenAttributes: ['percentage'],
+    hiddenFromDragDrop: ['percentage'],
+    aggregators: {
+      Percentage: function () {
+        return aggregatorTemplates.average()(['percentage']);
+      },
+    },
+  });
+  console.log(aggregatorTemplates);
 
   const [filterData, setFilterData] = useState({
     category1: {
@@ -52,24 +113,20 @@ const Board = () => {
 
   const { state } = useContext(AppContext);
   const { data } = state;
-  //   {
-  //     "category1": "direction",
-  //     "category2": "hourofday",
-  //     "name1": "1",
-  //     "name2": "9",
-  //     "total": 11,
-  //     "correct": 9,
-  //     "percentage": 81.8181818181818,
-  //     "stddev_percentage": 40.4519917477945,
-  //     "type": "chart pattern",
-  //     "breakout": true
-  // }
+  console.log(pivotData);
 
   // app data & category 1
   useEffect(() => {
     if (data) {
       const appDt = data.find((d) => d.statsid === chosedSection);
       if (appDt) {
+        setAppInfo({
+          calcfrom: appDt.calcfrom,
+          calcto: appDt.calcto,
+          description: appDt.description,
+          groupingname: appDt.groupingname,
+          latestupdate: appDt.latestupdate,
+        });
         const { stats2d } = appDt;
         setStats2D(stats2d);
 
@@ -164,218 +221,143 @@ const Board = () => {
   }, [stats2D, filterData]);
 
   return (
-    <div className='App'>
-      {stats2D && (
-        <div>
-          <div>
-            {/* category 1 */}
-            <FormControl className={classes.formControl}>
-              <InputLabel id='demo-simple-select-label'>Category 1</InputLabel>
-              <Select
-                labelId='demo-simple-select-label'
-                id='demo-simple-select'
-                value={filterData.category1.choosed}
-                name='category1'
-                onChange={handleChange}
-                renderValue={(selected) =>
-                  getCategroyName(selected, filterData.category1.names)
-                }
-                input={<Input />}
-                multiple
-              >
-                {filterData?.category1?.names?.map(({ id, name }) => (
-                  <MenuItem key={id} value={id}>
-                    <Checkbox
-                      checked={filterData.category1.choosed.indexOf(name) > -1}
-                    />
-                    <ListItemText primary={name} />
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+    <div className={classes.root}>
+      <CssBaseline />
+      <AppBar position='absolute' className={classes.appBar}>
+        <Toolbar className={classes.toolbar}>
+          <Typography
+            component='h1'
+            variant='h6'
+            color='inherit'
+            noWrap
+            className={classes.title}
+          >
+            {appInfo && `Selected Group - ${appInfo.groupingname} `}
+          </Typography>
+        </Toolbar>
+      </AppBar>
+      <main className={classes.content}>
+        <div className={classes.appBarSpacer} />
+        <Container maxWidth='lg' className={classes.container}>
+          <Grid container spacing={3}>
+            <Grid item md={12}>
+              <Paper className={classes.filters}>
+                {/* category 1 */}
+                <FormControl className={classes.formControl}>
+                  <InputLabel id='demo-simple-select-label'>
+                    Category 1
+                  </InputLabel>
+                  <Select
+                    labelId='demo-simple-select-label'
+                    id='demo-simple-select'
+                    value={filterData.category1.choosed}
+                    name='category1'
+                    onChange={handleChange}
+                    renderValue={(selected) =>
+                      getCategroyName(selected, filterData.category1.names)
+                    }
+                    input={<Input />}
+                    multiple
+                  >
+                    {filterData?.category1?.names?.map(({ id, name }) => (
+                      <MenuItem key={id} value={id}>
+                        <Checkbox
+                          checked={
+                            filterData.category1.choosed.indexOf(name) > -1
+                          }
+                        />
+                        <ListItemText primary={name} />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-            {/* category 2 */}
-            <FormControl className={classes.formControl}>
-              <InputLabel id='demo-simple-select-label'>Category 2</InputLabel>
-              <Select
-                labelId='demo-simple-select-label'
-                id='demo-simple-select'
-                value={filterData.category2.choosed}
-                name='category2'
-                onChange={handleChange}
-                renderValue={(selected) =>
-                  getCategroyName(selected, filterData.category2.names)
-                }
-                input={<Input />}
-                multiple
-              >
-                {filterData?.category2?.names?.map(({ id, name }) => (
-                  <MenuItem key={id} value={id}>
-                    <Checkbox
-                      checked={filterData.category2.choosed.indexOf(name) > -1}
-                    />
-                    <ListItemText primary={name} />
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            {/* types */}
-            <FormControl className={classes.formControl}>
-              <InputLabel id='demo-simple-select-label'>Types</InputLabel>
-              <Select
-                labelId='demo-simple-select-label'
-                id='demo-simple-select'
-                value={filterData.types.choosed}
-                name='types'
-                onChange={handleChange}
-              >
-                <MenuItem value={ALL_DATA_MARK}>(All)</MenuItem>
-                {filterData?.types?.names?.map(({ id, name }) => (
-                  <MenuItem key={id} value={id}>
-                    {name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            {/* break out */}
-            <FormControl className={classes.formControl}>
-              <InputLabel id='demo-simple-select-label'>Break out</InputLabel>
-              <Select
-                labelId='demo-simple-select-label'
-                id='demo-simple-select'
-                value={filterData.breakout.choosed}
-                name='breakout'
-                onChange={handleChange}
-              >
-                <MenuItem value={ALL_DATA_MARK}>(All)</MenuItem>
-                {filterData?.breakout?.names?.map(({ id, name }) => (
-                  <MenuItem key={id} value={id}>
-                    {name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </div>
-          <div>
-            <PivotTableUI
-              data={getFilteredData()}
-              onChange={(s) => setPivotData(s)}
-              {...pivotData}
-            />
-          </div>
-        </div>
-      )}
+                {/* category 2 */}
+                <FormControl className={classes.formControl}>
+                  <InputLabel id='demo-simple-select-label'>
+                    Category 2
+                  </InputLabel>
+                  <Select
+                    labelId='demo-simple-select-label'
+                    id='demo-simple-select'
+                    value={filterData.category2.choosed}
+                    name='category2'
+                    onChange={handleChange}
+                    renderValue={(selected) =>
+                      getCategroyName(selected, filterData.category2.names)
+                    }
+                    input={<Input />}
+                    multiple
+                  >
+                    {filterData?.category2?.names?.map(({ id, name }) => (
+                      <MenuItem key={id} value={id}>
+                        <Checkbox
+                          checked={
+                            filterData.category2.choosed.indexOf(name) > -1
+                          }
+                        />
+                        <ListItemText primary={name} />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                {/* types */}
+                <FormControl className={classes.formControl}>
+                  <InputLabel id='demo-simple-select-label'>Types</InputLabel>
+                  <Select
+                    labelId='demo-simple-select-label'
+                    id='demo-simple-select'
+                    value={filterData.types.choosed}
+                    name='types'
+                    onChange={handleChange}
+                  >
+                    <MenuItem value={ALL_DATA_MARK}>(All)</MenuItem>
+                    {filterData?.types?.names?.map(({ id, name }) => (
+                      <MenuItem key={id} value={id}>
+                        {name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                {/* break out */}
+                <FormControl className={classes.formControl}>
+                  <InputLabel id='demo-simple-select-label'>
+                    Break out
+                  </InputLabel>
+                  <Select
+                    labelId='demo-simple-select-label'
+                    id='demo-simple-select'
+                    value={filterData.breakout.choosed}
+                    name='breakout'
+                    onChange={handleChange}
+                  >
+                    <MenuItem value={ALL_DATA_MARK}>(All)</MenuItem>
+                    {filterData?.breakout?.names?.map(({ id, name }) => (
+                      <MenuItem key={id} value={id}>
+                        {name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Paper className={classes.paper}>
+                {stats2D && (
+                  <PivotTableUI
+                    data={getFilteredData()}
+                    onChange={(s) => setPivotData(s)}
+                    {...pivotData}
+                  />
+                )}
+              </Paper>
+            </Grid>
+          </Grid>
+        </Container>
+      </main>
     </div>
   );
 };
 
 export default Board;
-
-// import React from 'react';
-// import clsx from 'clsx';
-// import { makeStyles, useTheme } from '@material-ui/core/styles';
-// import Input from '@material-ui/core/Input';
-// import InputLabel from '@material-ui/core/InputLabel';
-// import MenuItem from '@material-ui/core/MenuItem';
-// import FormControl from '@material-ui/core/FormControl';
-// import ListItemText from '@material-ui/core/ListItemText';
-// import Select from '@material-ui/core/Select';
-// import Checkbox from '@material-ui/core/Checkbox';
-// import Chip from '@material-ui/core/Chip';
-
-// const useStyles = makeStyles((theme) => ({
-//   formControl: {
-//     margin: theme.spacing(1),
-//     minWidth: 120,
-//     maxWidth: 300,
-//   },
-//   chips: {
-//     display: 'flex',
-//     flexWrap: 'wrap',
-//   },
-//   chip: {
-//     margin: 2,
-//   },
-//   noLabel: {
-//     marginTop: theme.spacing(3),
-//   },
-// }));
-
-// const ITEM_HEIGHT = 48;
-// const ITEM_PADDING_TOP = 8;
-// const MenuProps = {
-//   PaperProps: {
-//     style: {
-//       maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
-//       width: 250,
-//     },
-//   },
-// };
-
-// const names = [
-//   'Oliver Hansen',
-//   'Van Henry',
-//   'April Tucker',
-//   'Ralph Hubbard',
-//   'Omar Alexander',
-//   'Carlos Abbott',
-//   'Miriam Wagner',
-//   'Bradley Wilkerson',
-//   'Virginia Andrews',
-//   'Kelly Snyder',
-// ];
-
-// function getStyles(name, personName, theme) {
-//   return {
-//     fontWeight:
-//       personName.indexOf(name) === -1
-//         ? theme.typography.fontWeightRegular
-//         : theme.typography.fontWeightMedium,
-//   };
-// }
-
-// export default function MultipleSelect() {
-//   const classes = useStyles();
-//   const theme = useTheme();
-//   const [personName, setPersonName] = React.useState([]);
-
-//   const handleChange = (event) => {
-//     setPersonName(event.target.value);
-//   };
-
-//   const handleChangeMultiple = (event) => {
-//     const { options } = event.target;
-//     const value = [];
-//     for (let i = 0, l = options.length; i < l; i += 1) {
-//       if (options[i].selected) {
-//         value.push(options[i].value);
-//       }
-//     }
-//     setPersonName(value);
-//   };
-
-//   return (
-//     <div>
-//       <FormControl className={classes.formControl}>
-//         <InputLabel id='demo-mutiple-checkbox-label'>Tag</InputLabel>
-//         <Select
-//           labelId='demo-mutiple-checkbox-label'
-//           id='demo-mutiple-checkbox'
-//           multiple
-//           value={personName}
-//           onChange={handleChange}
-//           input={<Input />}
-//           renderValue={(selected) => selected.join(', ')}
-//           MenuProps={MenuProps}
-//         >
-//           {names.map((name) => (
-//             <MenuItem key={name} value={name}>
-//               <Checkbox checked={personName.indexOf(name) > -1} />
-//               <ListItemText primary={name} />
-//             </MenuItem>
-//           ))}
-//         </Select>
-//       </FormControl>
-//     </div>
-//   );
-// }
