@@ -1,6 +1,8 @@
 import React, { useState, useContext, useCallback, useEffect } from 'react';
-
 import { useHistory, useParams } from 'react-router-dom';
+import PivotTableUI from 'react-pivottable/PivotTableUI';
+import { aggregatorTemplates } from 'react-pivottable/Utilities';
+
 import { makeStyles } from '@material-ui/core/styles';
 import InputLabel from '@material-ui/core/InputLabel';
 import MenuItem from '@material-ui/core/MenuItem';
@@ -18,15 +20,10 @@ import Grid from '@material-ui/core/Grid';
 import Paper from '@material-ui/core/Paper';
 import Button from '@material-ui/core/Button';
 
-import PivotTableUI from 'react-pivottable/PivotTableUI';
-import { aggregatorTemplates } from 'react-pivottable/Utilities';
-
 import { AppContext } from 'context/app/provider';
-import { getNameByUnique } from 'service/utils';
+import { getNameByUnique, getNameByIdFromNames } from 'service/utils';
 
 import 'react-pivottable/pivottable.css';
-
-const ALL_DATA_MARK = '####';
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -94,8 +91,8 @@ const Board = () => {
   const [appInfo, setAppInfo] = useState({});
   const [groupInfo, setGroupInfo] = useState([]);
   const [pivotData, setPivotData] = useState({
-    cols: ['name2'],
-    rows: ['name1'],
+    cols: ['filter columns'],
+    rows: ['filter rows'],
     aggregatorName: 'Percentage',
     hiddenAttributes: ['percentage'],
     hiddenFromDragDrop: ['percentage'],
@@ -103,6 +100,9 @@ const Board = () => {
       Percentage: function () {
         return aggregatorTemplates.average()(['percentage']);
       },
+    },
+    onRefresh: function () {
+      console.log('onRefresh');
     },
   });
 
@@ -120,22 +120,33 @@ const Board = () => {
 
   const [filterData, setFilterData] = useState({
     category1: {
-      choosed: [],
+      choosed: '',
     },
     category2: {
-      choosed: [],
+      choosed: '',
     },
     types: {
-      choosed: ALL_DATA_MARK,
+      choosed: [],
     },
     breakout: {
-      choosed: ALL_DATA_MARK,
+      choosed: [],
     },
   });
   const { sid: chosedSection } = useParams();
 
   const { state } = useContext(AppContext);
   const { data } = state;
+
+  useEffect(() => {
+    if (chosedSection === 'all' && data) {
+      console.log(data);
+      const item = data.find((item) => item.groupingname === '[All]');
+      console.log(item);
+      if (item) {
+        history.push(`/data/${item.statsid}`);
+      }
+    }
+  }, [data, chosedSection, history]);
 
   // app data & category 1
   useEffect(() => {
@@ -153,12 +164,14 @@ const Board = () => {
           latestupdate: appDt.latestupdate,
         });
         const { stats2d } = appDt;
-        setStats2D(stats2d);
+        setStats2D(
+          stats2d.map((item) => ({ ...item, breakout: '' + item.breakout }))
+        );
 
         const categs1 = getNameByUnique(stats2d, 'category1');
         setFilterData((c) => ({
           ...c,
-          category1: { names: categs1, choosed: categs1.map((c) => c.name) },
+          category1: { names: categs1, choosed: 'overall' },
         }));
       }
     }
@@ -166,32 +179,44 @@ const Board = () => {
 
   // category 2
   useEffect(() => {
-    const categs1Choosed = filterData.category1.choosed;
-    const filteredCategs1 = stats2D.filter(
-      (stat) => categs1Choosed.indexOf(stat.category1) > -1
-    );
-    const categs2 = getNameByUnique(filteredCategs1, 'category2');
-    setFilterData((c) => ({
-      ...c,
-      category2: { names: categs2, choosed: categs2.map((c) => c.name) },
-    }));
+    if (filterData.category1?.names) {
+      const { names, choosed } = filterData.category1;
+
+      const cat1Name = names.find((c) => c.id === choosed)?.name || '';
+
+      const filteredCategs1 = stats2D.filter(
+        (stat) => stat.category1 === cat1Name
+      );
+      const categs2 = getNameByUnique(filteredCategs1, 'category2');
+      setFilterData((c) => ({
+        ...c,
+        category2: { names: categs2, choosed: 'overall' },
+      }));
+    }
   }, [stats2D, filterData.category1]);
 
   // type and break out
   useEffect(() => {
-    const categs1Choosed = filterData.category1.choosed;
-    const categs2Choosed = filterData.category2.choosed;
+    const categs1ChoosedName = getNameByIdFromNames(
+      filterData.category1.names,
+      filterData.category1.choosed
+    );
+    const categs2ChoosedName = getNameByIdFromNames(
+      filterData.category2.names,
+      filterData.category2.choosed
+    );
+
     const filteredCategs = stats2D.filter(
       (stat) =>
-        categs1Choosed.indexOf(stat.category1) > -1 &&
-        categs2Choosed.indexOf(stat.category2) > -1
+        stat.category1 === categs1ChoosedName &&
+        stat.category2 === categs2ChoosedName
     );
     const types = getNameByUnique(filteredCategs, 'type');
     const breakout = getNameByUnique(filteredCategs, 'breakout');
     setFilterData((c) => ({
       ...c,
-      types: { names: types, choosed: ALL_DATA_MARK },
-      breakout: { names: breakout, choosed: ALL_DATA_MARK },
+      types: { names: types, choosed: types.map((t) => t.name) },
+      breakout: { names: breakout, choosed: breakout.map((t) => t.name) },
     }));
   }, [stats2D, filterData.category1, filterData.category2]);
 
@@ -216,34 +241,49 @@ const Board = () => {
   }, []);
 
   const getFilteredData = useCallback(() => {
-    const categs1Choosed = filterData.category1.choosed;
-    const categs2Choosed = filterData.category2.choosed;
+    const categs1ChoosedName = getNameByIdFromNames(
+      filterData.category1.names,
+      filterData.category1.choosed
+    );
+
+    const categs2ChoosedName = getNameByIdFromNames(
+      filterData.category2.names,
+      filterData.category2.choosed
+    );
+
     const typesChoosed = filterData.types.choosed;
     const breakoutChoosed = filterData.breakout.choosed;
 
     const filteredCategs = stats2D
       .filter(
         (stat) =>
-          categs1Choosed.indexOf(stat.category1) > -1 &&
-          categs2Choosed.indexOf(stat.category2) > -1
+          typesChoosed.indexOf(stat.type) > -1 &&
+          breakoutChoosed.indexOf(stat.breakout) > -1
       )
-      .filter(
-        (stat) => typesChoosed === ALL_DATA_MARK || typesChoosed === stat.types
-      )
-      .filter(
-        (stat) =>
-          breakoutChoosed === ALL_DATA_MARK || breakoutChoosed === stat.breakout
-      )
+      .filter((stat) => stat.category1 === categs1ChoosedName)
+      .filter((stat) => stat.category2 === categs2ChoosedName)
       .map((item) => ({
         // correct: item.correct,
-        name1: item.name1,
-        name2: item.name2,
+        'filter rows': item.name1,
+        'filter columns': item.name2,
         percentage: item.percentage,
         // stddev_percentage: item.stddev_percentage,
         // total: item.total,
       }));
     return filteredCategs;
   }, [stats2D, filterData]);
+
+  const greenColorScaleGenerator = useCallback((values) => {
+    const MAX_COLOR_VAL = 200;
+    const min = Math.min.apply(Math, values);
+    const max = Math.max.apply(Math, values);
+    return (x) => {
+      // eslint-disable-next-line no-magic-numbers
+      const nonRed =
+        MAX_COLOR_VAL - Math.round((MAX_COLOR_VAL * (x - min)) / (max - min));
+      return { backgroundColor: `rgb(${nonRed},${MAX_COLOR_VAL},${nonRed})` };
+    };
+  }, []);
 
   const handleSectionChange = useCallback(
     (e) => {
@@ -252,6 +292,9 @@ const Board = () => {
     },
     [history]
   );
+  const removeValuesFromFilter = useCallback((attribute, values) => {
+    console.log(attribute, values);
+  }, []);
 
   return (
     <div className={classes.root}>
@@ -309,26 +352,17 @@ const Board = () => {
                   <InputLabel id='demo-simple-select-label'>
                     Row Heading
                   </InputLabel>
+
                   <Select
                     labelId='demo-simple-select-label'
                     id='demo-simple-select'
                     value={filterData.category1.choosed}
                     name='category1'
                     onChange={handleChange}
-                    renderValue={(selected) =>
-                      getCategroyName(selected, filterData.category1.names)
-                    }
-                    input={<Input />}
-                    multiple
                   >
                     {filterData?.category1?.names?.map(({ id, name }) => (
                       <MenuItem key={id} value={id}>
-                        <Checkbox
-                          checked={
-                            filterData.category1.choosed.indexOf(name) > -1
-                          }
-                        />
-                        <ListItemText primary={name} />
+                        {name}
                       </MenuItem>
                     ))}
                   </Select>
@@ -336,67 +370,72 @@ const Board = () => {
 
                 {/* category 2 */}
                 <FormControl className={classes.formControl}>
-                  <InputLabel id='demo-simple-select-label'>
+                  <InputLabel id='category-2-select-label'>
                     Column Heading
                   </InputLabel>
                   <Select
-                    labelId='demo-simple-select-label'
-                    id='demo-simple-select'
+                    id='category-2-select'
+                    labelId='category-2-select-label'
                     value={filterData.category2.choosed}
                     name='category2'
                     onChange={handleChange}
+                  >
+                    {filterData?.category2?.names?.map(({ id, name }) => (
+                      <MenuItem key={id} value={id}>
+                        {name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {/* types */}
+                <FormControl className={classes.formControl}>
+                  <InputLabel id='types-label'>Types</InputLabel>
+                  <Select
+                    id='types'
+                    labelId='types-label'
+                    value={filterData.types.choosed}
+                    name='types'
+                    onChange={handleChange}
                     renderValue={(selected) =>
-                      getCategroyName(selected, filterData.category2.names)
+                      getCategroyName(selected, filterData.types.names)
                     }
                     input={<Input />}
                     multiple
                   >
-                    {filterData?.category2?.names?.map(({ id, name }) => (
+                    {filterData?.types?.names?.map(({ id, name }) => (
                       <MenuItem key={id} value={id}>
                         <Checkbox
-                          checked={
-                            filterData.category2.choosed.indexOf(name) > -1
-                          }
+                          checked={filterData.types.choosed.indexOf(name) > -1}
                         />
                         <ListItemText primary={name} />
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-                {/* types */}
-                <FormControl className={classes.formControl}>
-                  <InputLabel id='demo-simple-select-label'>Types</InputLabel>
-                  <Select
-                    labelId='demo-simple-select-label'
-                    id='demo-simple-select'
-                    value={filterData.types.choosed}
-                    name='types'
-                    onChange={handleChange}
-                  >
-                    <MenuItem value={ALL_DATA_MARK}>(All)</MenuItem>
-                    {filterData?.types?.names?.map(({ id, name }) => (
-                      <MenuItem key={id} value={id}>
-                        {name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
                 {/* break out */}
                 <FormControl className={classes.formControl}>
-                  <InputLabel id='demo-simple-select-label'>
-                    Break out
-                  </InputLabel>
+                  <InputLabel id='breakout-labael'>Break out</InputLabel>
                   <Select
-                    labelId='demo-simple-select-label'
+                    labelId='breakout-labael'
                     id='demo-simple-select'
                     value={filterData.breakout.choosed}
                     name='breakout'
                     onChange={handleChange}
+                    renderValue={(selected) =>
+                      getCategroyName(selected, filterData.breakout.names)
+                    }
+                    input={<Input />}
+                    multiple
                   >
-                    <MenuItem value={ALL_DATA_MARK}>(All)</MenuItem>
                     {filterData?.breakout?.names?.map(({ id, name }) => (
                       <MenuItem key={id} value={id}>
-                        {name}
+                        <Checkbox
+                          checked={
+                            filterData.breakout.choosed.indexOf(name) > -1
+                          }
+                        />
+                        <ListItemText primary={name} />
                       </MenuItem>
                     ))}
                   </Select>
@@ -410,6 +449,7 @@ const Board = () => {
                   <PivotTableUI
                     data={getFilteredData()}
                     onChange={(s) => setPivotData(s)}
+                    tableColorScaleGenerator={greenColorScaleGenerator}
                     {...pivotData}
                   />
                 )}

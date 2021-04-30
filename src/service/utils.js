@@ -6,3 +6,8 @@ export const getNameByUnique = (array, name) => {
     name: '' + v,
   }));
 };
+
+export const getNameByIdFromNames = (names, id) => {
+  const res = _.find(names, { id });
+  return res ? res.name : null;
+};

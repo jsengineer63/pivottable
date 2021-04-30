@@ -1,8 +1,13 @@
 import React, { useContext, useEffect } from 'react';
-import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
+import {
+  BrowserRouter as Router,
+  Switch,
+  Route,
+  Redirect,
+} from 'react-router-dom';
 
 import Board from './Board';
-import Category from './Category';
+import Dashboard from './Dashboard';
 import { AppContext } from 'context/app/provider';
 
 const RootPage = () => {
@@ -18,8 +23,9 @@ const RootPage = () => {
     <React.Fragment>
       <Router>
         <Switch>
-          <Route exact path={'/'} component={Category} />
+          <Redirect exact from={'/'} to={'/data/all'} />
           <Route exact path={'/data/:sid'} component={Board} />
+          <Route exact path={'/dashboard'} component={Dashboard} />
           <Route component={NotFound} />
         </Switch>
       </Router>
